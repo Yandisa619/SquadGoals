@@ -8,10 +8,15 @@ import uuid
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import time
+
+RESET_COOLDOWN = 15 * 60  # 15 minutes in seconds
+TOKEN_EXPIRATION_TIME = 3600  # 1 hour in seconds
+
 
 def send_registration_email(client_email):
-    sender_email = "yandisa.ndubela@capaciti.org.za"  
-    sender_password = "981008Yn#"  
+    sender_email = "yandisa.ndubela@capaciti.org.za"
+    sender_password = "981008Yn#"
 
     subject = "Registration Successful"
     body = f"Welcome {client_email}!\n\nYour account has been created successfully.\n\nBest regards,\nSquad Goals"
@@ -31,9 +36,10 @@ def send_registration_email(client_email):
     except Exception as e:
         print(f"Error: {e}")
 
+
 def send_reset_email(client_email, token):
-    sender_email = "yandisa.ndubela@capaciti.org.za"  
-    sender_password = "981008Yn#" 
+    sender_email = "yandisa.ndubela@capaciti.org.za"
+    sender_password = "981008Yn#"
 
     subject = "Password Reset Request"
     reset_link = f"http://localhost/reset_password?token={token}&email={client_email}"
@@ -54,6 +60,7 @@ def send_reset_email(client_email, token):
     except Exception as e:
         print(f"Error: {e}")
 
+
 def create_entry(frame, placeholder, y_position):
     def on_focus_in(event, entry_widget):
         if entry_widget.get() == placeholder:
@@ -69,14 +76,13 @@ def create_entry(frame, placeholder, y_position):
     entry.place(x=30, y=y_position)
     entry.insert(0, placeholder)
 
-    # Bind focus in/out events
     entry.bind("<FocusIn>", lambda event: on_focus_in(event, entry))
     entry.bind("<FocusOut>", lambda event: on_focus_out(event, entry))
 
-    # Underline for the entry
     Frame(frame, width=295, height=2, bg='purple').place(x=25, y=y_position + 27)
 
     return entry
+
 
 class App:
     def __init__(self, master):
@@ -86,10 +92,10 @@ class App:
         self.master.resizable(False, False)
 
         try:
-            img = Image.open('pexels-photo-1190297.jpeg')
+            img = Image.open(r'C:\Users\Yandisa\OneDrive - Cape IT Initiative\Documents\Github\SquadGoals\sign up\pexels-photo-1190297.png')
             img_resized = img.resize((940, 515), Image.LANCZOS)
             tk_img = ImageTk.PhotoImage(img_resized)
-            self.master.tk_img = tk_img  
+            self.master.tk_img = tk_img
         except Exception as e:
             print(f"Error loading image: {e}")
             tk_img = None
@@ -148,13 +154,11 @@ class App:
         password = self.password.get()
         confirm_password_value = self.confirm_password.get()
 
-        # Email validation
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         if not re.match(email_pattern, email_value):
             messagebox.showerror('Invalid', 'Please enter a valid email address')
             return
 
-        # Password complexity check
         if len(password) < 8 or not re.search(r'[A-Z]', password) or not re.search(r'[a-z]', password) or not re.search(r'[0-9]', password) or not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
             messagebox.showerror('Invalid', 'Password must be at least 8 characters long, contain upper and lowercase letters, a number, and a special character')
             return
@@ -170,8 +174,8 @@ class App:
             with open(data_file, 'r') as file:
                 for line in file:
                     if ',' in line:
-                     email, hashed_password = line.strip().split(',',1)
-                     user_data[email] = hashed_password
+                        email, hashed_password = line.strip().split(',', 1)
+                        user_data[email] = hashed_password
 
         if email_value in user_data:
             messagebox.showerror('Error', 'Email already registered')
@@ -212,25 +216,106 @@ class App:
     def forgot_password_window(self):
         self.clear_frame()
 
-        heading = Label(self.frame, text='Reset Password', fg='#800080', bg='black', font=('Microsoft YaHei UI Light', 23, 'bold'))
-        heading.place(x=70, y=5)
+        heading = Label(self.frame, text='RESET PASSWORD', fg='#800080', bg='black', font=('Microsoft YaHei UI Light', 23, 'bold'))
+        heading.place(x=40, y=5)
 
         self.email = create_entry(self.frame, 'Email Address', 80)
-        Button(self.frame, width=39, pady=7, text='Send Reset Email', bg='#800080', fg='white', border=0, command=self.forgot_password).place(x=35, y=200)
 
-        signin_button = Button(self.frame, width=6, text='Sign In', border=0, bg='black', cursor='hand2', fg='#800080', command=self.signin_window)
-        signin_button.place(x=150, y=300)
+        Button(self.frame, width=39, pady=7, text='Submit', bg='#800080', fg='white', border=0, command=self.forgot_password).place(x=35, y=200)
+        
+        label = Label(self.frame, text = 'Remembered your password?', fg = 'purple', bg ='black', font = ('Microsoft YaHei UI Light', 9))
+        label.place(x = 50, y = 250)
 
+        signin_button = Button(self.frame, width = 6, text = 'Log In', border = 0, bg = 'black', cursor = 'hand2', fg = '#800080', command = self.signin_window)
+        signin_button.place(x = 220, y = 250)
     def forgot_password(self):
         email_value = self.email.get()
 
-        # Generate a reset token (this is simplified)
+        # Email format validation
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, email_value):
+            messagebox.showerror('Invalid', 'Please enter a valid email address')
+            return
+
+        # Check if the email exists in the user data
+        user_data = {}
+        data_file = 'datasheet.txt'
+        last_reset_file = 'last_reset.txt'  # file to store last reset timestamps
+
+        if os.path.exists(data_file):
+            with open(data_file, 'r') as file:
+                for line in file:
+                    email, hashed_password = line.strip().split(',')
+                    user_data[email] = hashed_password
+
+        if email_value not in user_data:
+            messagebox.showerror('Error', 'Email address not registered')
+            return
+
+        # Check reset frequency from 'last_reset.txt'
+        if os.path.exists(last_reset_file):
+            with open(last_reset_file, 'r') as file:
+                for line in file:
+                    registered_email, last_reset_time = line.strip().split(',')
+                    if email_value == registered_email:
+                        last_reset_time = float(last_reset_time)
+                        current_time = time.time()
+
+                        # Check if cooldown period has passed
+                        if current_time - last_reset_time < RESET_COOLDOWN:
+                            messagebox.showerror('Error', f'Reset request too soon. Please wait {int((RESET_COOLDOWN - (current_time - last_reset_time)) // 60)} minutes.')
+                            return
+
+        # Generate a reset token
         reset_token = str(uuid.uuid4())
 
+        # Update the last reset time
+        with open(last_reset_file, 'a') as file:
+            file.write(f"{email_value},{time.time()}\n")
+
+        # Store the reset token securely
+        self.store_reset_token(email_value, reset_token)
+
+        # Send the reset email
         send_reset_email(email_value, reset_token)
 
         messagebox.showinfo('Forgot Password', 'Password reset email sent!')
 
-root = Tk()
-app = App(root)
-root.mainloop()
+    def store_reset_token(self, email, token):
+        reset_token_file = 'reset_tokens.txt'
+
+        with open(reset_token_file, 'a') as file:
+            file.write(f"{email},{token},{time.time()}\n")
+
+    def validate_reset_token(self, email, token):
+        reset_token_file = 'reset_tokens.txt'
+        if not os.path.exists(reset_token_file):
+            return False  # Token not found
+
+        with open(reset_token_file, 'r') as file:
+            valid_tokens = []
+            for line in file:
+                stored_email, stored_token, token_time = line.strip().split(',')
+                token_time = float(token_time)
+
+                # Check if token is expired
+                if email == stored_email and token == stored_token:
+                    if time.time() - token_time < TOKEN_EXPIRATION_TIME:
+                        return True
+                    else:
+                        messagebox.showerror('Error', 'Token has expired.')
+                        return False
+                else:
+                    valid_tokens.append(line)
+
+        # Clean up expired tokens
+        with open(reset_token_file, 'w') as file:
+            file.writelines(valid_tokens)
+
+        return False  # Token is invalid
+
+
+if __name__ == '__main__':
+    root = Tk()
+    app = App(root)
+    root.mainloop()
