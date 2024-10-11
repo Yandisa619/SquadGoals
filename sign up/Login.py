@@ -216,8 +216,8 @@ class App:
     def forgot_password_window(self):
         self.clear_frame()
 
-        heading = Label(self.frame, text='RESET PASSWORD', fg='#800080', bg='black', font=('Microsoft YaHei UI Light', 23, 'bold'))
-        heading.place(x=40, y=5)
+        heading = Label(self.frame, text='FORGOT PASSWORD', fg='#800080', bg='black', font=('Microsoft YaHei UI Light', 20, 'bold'))
+        heading.place(x=35, y=5)
 
         self.email = create_entry(self.frame, 'Email Address', 80)
 
